@@ -36,8 +36,44 @@ class ZF1 {
     	
     	$Zend_View_Abstract = $context["this"];
     	$helper = $Zend_View_Abstract->getHelper($name);
-    	$storage['viewHelpers'][$name] = array(    'args' => $args,
-    	                                           'helperObject' => $helper);
+    	
+
+    	$reflect = new \ReflectionClass($helper);
+    	
+    	$properties = array();
+    	foreach ($reflect->getProperties(\ReflectionProperty::IS_PUBLIC | \ReflectionProperty::IS_PROTECTED | \ReflectionProperty::IS_PRIVATE) as $prop) {
+    	    $prop->setAccessible(true);
+    	    $value = $prop->getValue($helper);
+    	    if (is_object($value)) {
+    	        $properties[$prop->getName()] = get_class($value);
+    	    } else {
+    	        $properties[$prop->getName()] = $value;
+    	    }
+    	}
+    	
+    	$helpersArgs = array();
+    	foreach ($args as $arg) {
+    	    if (is_object($arg)) {
+        	    $reflect = new \ReflectionClass($arg);
+        	     
+        	    $properties = array();
+        	    foreach ($reflect->getProperties(\ReflectionProperty::IS_PUBLIC | \ReflectionProperty::IS_PROTECTED | \ReflectionProperty::IS_PRIVATE) as $prop) {
+        	        $prop->setAccessible(true);
+        	        $value = $prop->getValue($arg);
+        	        if (is_object($value)) {
+        	            $properties[$prop->getName()] = get_class($value);
+        	        } else {
+        	            $properties[$prop->getName()] = $value;
+        	        }
+        	    }
+        	    $helpersArgs[get_class($arg)] = $properties;
+    	    } else {
+    	        $helpersArgs[] = $arg;
+    	    }
+    	}
+    	
+    	$storage['viewHelpers'][$name] = array(    'args'          => $helpersArgs,
+    	                                           'helperObject'  => $properties);
     }
     
     public function storeHandleErrorExit($context, &$storage) {
@@ -48,7 +84,9 @@ class ZF1 {
 
     
     public function storeRouterRewriteRequestExit($context, &$storage) {
-       $storage['requestObject'][] = $context['returnValue'];
+       if(! $context["exceptionThrown"]) {
+           $storage['requestObject'][] = $context['returnValue'];
+       }
     }
     
 	////////////// PRIVATES ///////////////////
@@ -149,7 +187,7 @@ $zre->setMetadata(array(
 	'logo' => __DIR__ . DIRECTORY_SEPARATOR . 'logo.png',
 ));
 
-$zre->setEnabledAfter('Zend_Application::bootstrap');
+$zre->setEnabledAfter('Zend_Controller_Front::dispatch');
 
 $zre->traceFunction("Zend_Controller_Dispatcher_Standard::dispatch",  function(){}, array($zf1Storage, 'storeDispatcherExit'));
 $zre->traceFunction("Zend_Controller_Front::dispatch", function(){}, array($zf1Storage, 'storeFrontDispatchExit'));
