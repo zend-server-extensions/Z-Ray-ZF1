@@ -18,10 +18,12 @@ class ZF1 {
 	
 	public function storeFrontDispatchExit($context, &$storage) {
 		$Zend_Controller_Front = $context["this"];
-		$plugins = $Zend_Controller_Front->getPlugins();
-		 
-		foreach ($plugins as $plugin) {
-		  $storage['plugin'][get_class($plugin)] = $plugin;
+		if (method_exists($Zend_Controller_Front, 'getPlugins')) {
+			$plugins = $Zend_Controller_Front->getPlugins();
+			 
+			foreach ($plugins as $plugin) {
+			  $storage['plugin'][get_class($plugin)] = $plugin;
+			}
 		}
 	}
 	
