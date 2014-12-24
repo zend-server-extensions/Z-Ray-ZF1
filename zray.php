@@ -1,4 +1,9 @@
 <?php
+/*********************************
+	Zend Framework 1 Z-Ray Extension
+	Version: 1.00
+**********************************/
+
 namespace ZF1;
 
 class ZF1 {
