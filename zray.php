@@ -6,6 +6,10 @@
 
 namespace ZF1;
 
+use Traversable,
+    Closure,
+    ReflectionProperty;
+
 class ZF1 {
     
     private $isExceptionSaved = false;
@@ -27,7 +31,7 @@ class ZF1 {
 			$plugins = $Zend_Controller_Front->getPlugins();
 			 
 			foreach ($plugins as $plugin) {
-			  $storage['plugin'][get_class($plugin)] = $plugin;
+			  $storage['plugin'][get_class($plugin)] = $this->makeArraySerializable($plugin);
 			}
 		}
 	}
@@ -184,6 +188,83 @@ class ZF1 {
         }
         return $moduleClassName;
     }
+
+        /**
+     * Replaces the un-serializable items in an array with stubs
+     *
+     * @param array|\Traversable $data
+     *
+     * @return array
+     */
+    private function makeArraySerializable($data) {
+        $serializable = array();
+        try {
+            foreach (self::iteratorToArray($data) as $key => $value) {
+                if ($value instanceof Traversable || is_array($value)) {
+                    $serializable[$key] = $this->makeArraySerializable($value);
+
+                    continue;
+                }
+
+                if ($value instanceof Closure) {
+                    $serializable[$key] = new ClosureStub();
+                    continue;
+                }
+
+                $serializable[$key] = $value;
+            }
+        } catch (\InvalidArgumentException $e) {
+            return $serializable;
+        }
+
+        return $serializable;
+    }
+
+    public static function iteratorToArray($iterator, $recursive = true) {
+        if (!is_array($iterator) && !$iterator instanceof Traversable) {
+            throw new \InvalidArgumentException(__METHOD__ . ' expects an array or Traversable object');
+        }
+
+        if (!$recursive) {
+            if (is_array($iterator)) {
+                return $iterator;
+            }
+
+            return iterator_to_array($iterator);
+        }
+
+        if (method_exists($iterator, 'toArray')) {
+            return $iterator->toArray();
+        }
+
+        $array = array();
+        foreach ($iterator as $key => $value) {
+            if (is_scalar($value)) {
+                $array [$key] = $value;
+                continue;
+            }
+
+            if ($value instanceof Traversable) {
+                $array [$key] = static::iteratorToArray($value, $recursive);
+                continue;
+            }
+
+            if (is_array($value)) {
+                $array [$key] = static::iteratorToArray($value, $recursive);
+                continue;
+            }
+
+            $array [$key] = $value;
+        }
+
+        return $array;
+    }
+}
+
+/**
+ * Empty class that represents an {@see \Closure} object
+ */
+class ClosureStub {
 }
 
 // Allocate ZRayExtension for namespace "zf1"
