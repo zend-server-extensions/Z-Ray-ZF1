@@ -31,6 +31,9 @@ class ZF1 {
 			$plugins = $Zend_Controller_Front->getPlugins();
 			 
 			foreach ($plugins as $plugin) {
+              if (get_class($plugin) == 'Zend_Layout_Controller_Plugin_Layout') {
+                  continue;
+              }
 			  $storage['plugin'][get_class($plugin)] = $this->makeArraySerializable($plugin);
 			}
 		}
@@ -220,8 +223,49 @@ class ZF1 {
         return $serializable;
     }
 
+    /**
+     * Use reflection to iterate over an object.
+     *
+     * @param $iterator
+     * @param bool $recursive
+     * @return array
+     */
+    public static function objectToArray($iterator, $recursive = true) {
+        $array = array();
+        $reflect = new \ReflectionClass($iterator);
+        foreach ($reflect->getProperties(\ReflectionProperty::IS_PUBLIC | \ReflectionProperty::IS_PROTECTED | \ReflectionProperty::IS_PRIVATE) as $key=>$prop) {
+            $prop->setAccessible(true);
+            $value = $prop->getValue($iterator);
+            if (is_object($value) && $recursive) {
+                $array[$prop->getName().' ('.get_class($value).')'] = self::iteratorToArray($value, $recursive);
+                continue;
+            }
+            if (is_object($value)) {
+                $array[$prop->getName().' ('.get_class($value).')'] = $value;
+                continue;
+            }
+            $array[$prop->getName()] = $value;
+        }
+        return $array;
+    }
+
+    /**
+     * Copied from ZF2/zray.php fix (https://github.com/zend-server-extensions/Z-Ray-ZF2/issues/6#issuecomment-91606537)
+     * and modified to add object iteration.
+     *
+     * @param $iterator
+     * @param bool $recursive
+     * @return array
+     */
     public static function iteratorToArray($iterator, $recursive = true) {
         if (!is_array($iterator) && !$iterator instanceof Traversable) {
+            /**
+             * Use reflection for objects that can't be iterated.
+             */
+            if (is_object($iterator)) {
+                return self::objectToArray($iterator,true);
+            }
+
             throw new \InvalidArgumentException(__METHOD__ . ' expects an array or Traversable object');
         }
 
